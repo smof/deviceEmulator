@@ -5,7 +5,6 @@ Used to simulate a device accessing the OAuth2 based device flow as described he
 <br/>
 <b>Setup</b>
 <br/>
-<br/>
 Create OAuth2/OIDC client in OpenAM with appropriate scopes.
 <br/>
 <br/>
