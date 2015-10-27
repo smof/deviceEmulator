@@ -15,6 +15,7 @@ function menu() {
 	echo "1:  Start New Device Flow"
 	echo "2:  Check Issued Token Validity"
 	echo "3:  Refresh Previously Stored Access Token"
+	echo "4:  Retrieve Scope Data"
 	echo ""
 	echo "C:  Configure Emulator Settings"
 	echo "X:  Exit"
@@ -36,7 +37,13 @@ function menu() {
 			refreshToken
 			;;
 
+		4)	
+			retrieveScopeData
+			;;
 
+		5)
+			introspectId
+			;;
 
 		[x] | [X])
 				clear	
@@ -76,7 +83,7 @@ function startFlow {
 	echo "----------------------------------------------"
 
 	#Clear down previously saved device_code
-	rm -f .access_token .refresh_token	
+	rm -f .access_token .refresh_token .id_token
 
 	#Create HTTP request to device_code and user_code
 	echo "Using client: $CLIENT_ID to get device_code"
@@ -118,7 +125,12 @@ function startFlow {
 			#Save access_token and refresh_token
 			echo $accessTokenResponse | jq '.access_token' | sed 's/\"//g' > .access_token	
 			echo $accessTokenResponse | jq '.refresh_token' | sed 's/\"//g' > .refresh_token	
-			chmod 400 .access_token .refresh_token
+			#If OIDC is being used also save the id_token
+			if [ "$id_token" != "null" ]
+			then
+			echo $accessTokenResponse | jq '.id_token' | sed 's/\"//g' > .id_token
+			fi
+			chmod 400 .access_token .refresh_token .id_token
 			echo ""
 			echo "----------------------------------------------"
 			echo ""
@@ -139,7 +151,7 @@ function checkToken {
 	if [ -e .access_token ]
 	then
 		access_token=$(cat .access_token)
-		clientCreds=$(echo "SetTopBox:Passw0rd" | base64) #base64 encoded client creds and secret as set in the OAuth2 client in OpenAM
+		echo "Checking access_token: $access_token against ../oauth2/introspect"	
 		checkTokenResponse=$(curl -s --request POST --user "$CLIENT_ID:$CLIENT_SECRET" --header "Content-Type: application/json" "$OPENAM_URL/oauth2/introspect?token=$access_token")
 		echo ""
 		echo $checkTokenResponse | jq .
@@ -193,6 +205,22 @@ function refreshToken {
 	menu
 }
 
+#Exchange access_token for scope data
+function retrieveScopeData {
+
+	clear
+	echo "OAuth2 Device Flow - Retrieve Scope Data"	
+	echo "-----------------------------------------"	
+	echo "Sending request to ../oauth2/userinfo endpoint with access_token: $access_token"
+	echo ""	
+	scopeDataResponse=$(curl -s --header "Authorization: Bearer $access_token" --request GET "$OPENAM_URL/oauth2/userinfo")
+	echo $scopeDataResponse | jq .
+	echo ""
+	echo "-----------------------------------------"
+	read -p "Press [Enter] to return to menu"
+	menu
+
+}
 
 
 #Run Through
