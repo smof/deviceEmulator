@@ -108,7 +108,7 @@ function startFlow {
 		sleep $interval
 		counter=$((counter + $interval))
 		echo "Polled $counter seconds"	
-		accessTokenResponse=$(curl -s --request POST --header "Content-Type: application/json" "$OPENAM_URL/oauth2/device/token?client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET&code=$device_code")
+		accessTokenResponse=$(curl -d client_id=SetTopBox -d client_secret=Passw0rd -d grant_type=http://oauth.net/grant_type/device/1.0 -d code=$device_code "$OPENAM_URL/oauth2/access_token")
 		echo 
 		echo $accessTokenResponse | jq .
 		#Check if access_token has been sent back or not
@@ -207,6 +207,20 @@ function refreshToken {
 
 #Exchange access_token for scope data
 function retrieveScopeData {
+
+	#Check refresh token exists
+	if [ -e .refresh_token ]
+	then
+
+		refresh_token=$(cat .refresh_token)
+	else
+		echo "Access token not found.  Rerun device flow"
+		echo ""
+		echo ""
+		echo "-----------------------------------------"
+		read -p "Press [Enter] to return to menu"
+		menu
+	fi
 
 	clear
 	echo "OAuth2 Device Flow - Retrieve Scope Data"	
