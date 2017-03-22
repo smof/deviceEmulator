@@ -3,6 +3,15 @@
 #Simon.Moffatt@ForgeRock.Com
 
 
+#jq is used for some further json parsing
+JQ_LOC="$(which jq)"
+if [ "$JQ_LOC" = "" ]; then
+	echo ""
+	echo "JQ JSON parser not found.  Please install - http://stedolan.github.io/jq/download/"
+	echo ""
+	exit
+fi
+
 #Pull in settings from hidden 400 protected file
 source .settings
 
@@ -96,32 +105,38 @@ function startFlow {
 	expiration=$(echo $response | jq .expires_in)
 	
 	#Create interaction
+	echo ""
 	echo "Go to the following URL: $verification_url"
 	echo "Enter the following user_code: $user_code within the next $expiration seconds"
 	echo ""
 
 	#Do poll against authorization service
 	counter=0
-	echo "Polling Authorisation Service for approval with device_code: $device_code"
+	echo "Polling AS every $interval secs for approval with device_code: $device_code"
+
+	#Progress spinner
+	sp="."
+
 	#Create while loop to poll the authorisation service
 	while true; do
+
+		#Progress spinner
+		printf $sp
+
 		sleep $interval
-		counter=$((counter + $interval))
-		echo "Polled $counter seconds"	
-		accessTokenResponse=$(curl -d client_id=SetTopBox -d client_secret=Passw0rd -d grant_type=http://oauth.net/grant_type/device/1.0 -d code=$device_code "$OPENAM_URL/oauth2/access_token")
-		echo 
-		echo $accessTokenResponse | jq .
-		#Check if access_token has been sent back or not
+		accessTokenResponse=$(curl -s -d client_id=$CLIENT_ID -d client_secret=$CLIENT_SECRET -d grant_type=http://oauth.net/grant_type/device/1.0 -d code=$device_code "$OPENAM_URL/oauth2/access_token")
 		access_token=$(echo $accessTokenResponse | jq '.access_token')
-		echo ""
-		echo "Access token: $access_token"
-		echo ""
 
 		#Check that access_token has been sent back by doing a null check on it
 		if [ "$access_token" != "null" ]
 		then
-			echo ""		
-			echo "Consent given!! Access token found..."
+			echo ""	
+			echo ""	
+			echo "Authorization received - access_token given:"
+			echo ""
+			echo $accessTokenResponse | jq .
+			echo ""
+
 			#Save access_token and refresh_token
 			echo $accessTokenResponse | jq '.access_token' | sed 's/\"//g' > .access_token	
 			echo $accessTokenResponse | jq '.refresh_token' | sed 's/\"//g' > .refresh_token	
@@ -131,12 +146,12 @@ function startFlow {
 			echo $accessTokenResponse | jq '.id_token' | sed 's/\"//g' > .id_token
 			fi
 			chmod 400 .access_token .refresh_token .id_token
-			echo ""
 			echo "----------------------------------------------"
 			echo ""
 			read -p "Press [Enter] to return to menu"
 			menu
-		fi		
+		fi	
+		
 	done
 }
 
